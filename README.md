@@ -37,6 +37,3 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). Sign up with email — no Supabase needed.
 
 See [docs/setup.md](docs/setup.md).
-# ai-content-creator
-# ai-content-creator
-# ai-content-creator

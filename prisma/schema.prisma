@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Plan {
+  id              String   @id
+  displayName     String   @map("display_name")
+  monthlyCredits  Int      @map("monthly_credits")
+  amountPaise     Int      @default(0) @map("amount_paise")
+  currency        String   @default("INR")
+  billingInterval String   @default("month") @map("billing_interval")
+  sortOrder       Int      @default(0) @map("sort_order")
+  isPublic        Boolean  @default(true) @map("is_public")
+  users           User[]
+  subscriptions   Subscription[]
+  checkoutIntents CheckoutIntent[]
+
+  @@map("plans")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String?  @map("password_hash") @db.VarChar(255)
+  googleId      String?  @unique @map("google_id")
+  planId        String   @default("free") @map("plan_id")
+  plan          Plan     @relation(fields: [planId], references: [id])
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  creditUsage   CreditUsage[]
+  subscriptions Subscription[]
+  checkoutIntents CheckoutIntent[]
+
+  @@map("users")
+}
+
+model CreditUsage {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits     Int      @default(1)
+  reason      String   @default("generation")
+  periodStart DateTime @map("period_start") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, periodStart])
+  @@map("credit_usage")
+}
+
+model Subscription {
+  id                     String    @id @default(uuid())
+  userId                 String    @map("user_id")
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                 String    @map("plan_id")
+  plan                   Plan      @relation(fields: [planId], references: [id])
+  status                 String    @default("inactive")
+  provider               String    @default("razorpay")
+  providerCustomerId     String?   @map("provider_customer_id")
+  providerSubscriptionId String?   @unique @map("provider_subscription_id")
+  currentPeriodStart     DateTime? @map("current_period_start")
+  currentPeriodEnd       DateTime? @map("current_period_end")
+  cancelAtPeriodEnd      Boolean   @default(false) @map("cancel_at_period_end")
+  amountPaise            Int?      @map("amount_paise")
+  currency               String    @default("INR")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model CheckoutIntent {
+  id                     String    @id @default(uuid())
+  userId                 String    @map("user_id")
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                 String    @map("plan_id")
+  plan                   Plan      @relation(fields: [planId], references: [id])
+  status                 String    @default("pending")
+  provider               String    @default("razorpay")
+  amountPaise            Int       @map("amount_paise")
+  currency               String    @default("INR")
+  providerOrderId        String?   @map("provider_order_id")
+  providerPaymentId      String?   @map("provider_payment_id")
+  providerSubscriptionId String?   @map("provider_subscription_id")
+  expiresAt              DateTime  @map("expires_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@map("checkout_intents")
+}
+
+model BillingWebhookEvent {
+  id               String    @id @default(uuid())
+  provider         String    @default("razorpay")
+  providerEventId  String?   @map("provider_event_id")
+  eventType        String    @map("event_type")
+  payload          Json
+  processed        Boolean   @default(false)
+  processedAt      DateTime? @map("processed_at")
+  error            String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@unique([provider, providerEventId])
+  @@map("billing_webhook_events")
+}
